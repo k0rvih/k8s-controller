@@ -1,8 +1,9 @@
-module github.com/k0rvih/k8s-controller
+module github.com/yourusername/k8s-controller-tutorial
 
 go 1.24.2
 
 require (
+	github.com/k0rvih/k8s-controller v0.0.0-20250630113159-6ce9456106b5
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
 	github.com/valyala/fasthttp v1.62.0

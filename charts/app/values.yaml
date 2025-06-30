@@ -1,0 +1,4 @@
+image:
+  repository: ghcr.io/k0rvih/k8s-controller/app
+  tag: "0.0.0" # This is set by CI to the Git tag or commit SHA
+  pullPolicy: IfNotPresent
