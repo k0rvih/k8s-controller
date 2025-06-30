@@ -14,7 +14,7 @@ var logLevel string
 var appVersion = "dev"
 
 var rootCmd = &cobra.Command{
-	Use:   "k8s-controller",
+	Use:   "k8s-controller-tutorial",
 	Short: "A brief description of your application (version: " + appVersion + ")",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
