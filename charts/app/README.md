@@ -8,7 +8,7 @@ Override the image tag to deploy a specific version:
 
 ```sh
 helm install my-app ./charts/app \
-  --set image.repository=ghcr.io/your-org/app \
+  --set image.repository=ghcr.io/k0rvih/app \
   --set image.tag=v1.2.3
 ```
 
