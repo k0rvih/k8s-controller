@@ -3,7 +3,12 @@ package cmd
 import "testing"
 
 func TestGetKubeClient_InvalidPath(t *testing.T) {
-	_, err := getKubeClient("/invalid/path")
+	originalKubeconfig := kubeconfig
+	defer func() { kubeconfig = originalKubeconfig }()
+
+	kubeconfig = "/invalid/path"
+
+	_, err := getKubeClient()
 	if err == nil {
 		t.Error("expected error for invalid kubeconfig path")
 	}
