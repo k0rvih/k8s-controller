@@ -150,18 +150,35 @@ When the server is running, you'll see structured logs for deployment events in 
 
 ```
 k8s-controller/
-├── cmd/                    # CLI commands
-│   ├── root.go            # Root command configuration
-│   ├── list.go            # Resource listing commands
-│   └── server.go          # HTTP server with informer integration
+├── charts/                    # Helm charts for deployment
+│   └── app/
+│       ├── Chart.yaml         # Helm chart metadata
+│       ├── values.yaml        # Default values
+│       ├── README.md          # Chart documentation
+│       └── templates/         # Kubernetes manifest templates
+│           ├── _helpers.tpl
+│           ├── deployment.yaml
+│           └── service.yaml
+├── cmd/                       # CLI commands
+│   ├── root.go                # Root command configuration
+│   ├── root_test.go           # Root command tests
+│   ├── list.go                # Resource listing commands
+│   ├── list_test.go           # List command tests
+│   ├── server.go              # HTTP server with informer integration
+│   └── server_test.go         # Server command tests
 ├── pkg/
-│   ├── informer/          # Kubernetes informer implementation
-│   │   ├── informer.go    # Main informer logic
-│   │   └── informer_test.go # Comprehensive tests
-│   └── testutil/          # Testing utilities
-│       └── envtest.go     # envtest setup and helpers
-├── main.go                # Application entry point
-└── go.mod                 # Dependencies
+│   ├── informer/              # Kubernetes informer implementation
+│   │   ├── informer.go        # Main informer logic
+│   │   └── informer_test.go   # Informer tests
+│   └── testutil/              # Testing utilities
+│       ├── envtest.go         # envtest setup and helpers
+│       └── envtest_test.go    # envtest tests
+├── main.go                    # Application entry point
+├── go.mod                     # Go module dependencies
+├── Makefile                   # Build and test automation
+├── Dockerfile                 # Container image definition
+├── LICENSE                    # MIT license
+└── README.md                  # Project documentation
 ```
 
 ### Running Tests
@@ -285,7 +302,7 @@ subjects:
 1. **Kubeconfig not found**:
    ```bash
    # Set explicit path
-   ./k8s-controller server --enable-informer --kubeconfig /path/to/config
+   ./k8s-controller server --kubeconfig /path/to/config
    ```
 
 2. **Permission denied**:
@@ -307,7 +324,7 @@ subjects:
    kubectl get deployments -n default
 
    # Check logs for detailed information
-   ./k8s-controller server --enable-informer --log-level debug
+   ./k8s-controller server --log-level debug
    ```
 
 ## Contributing
