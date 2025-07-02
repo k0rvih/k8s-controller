@@ -19,7 +19,7 @@ A comprehensive Kubernetes controller CLI tool built with Go that provides deplo
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/k0rvih/k8s-controller.git
 cd k8s-controller
 
 # Build the application
@@ -34,7 +34,7 @@ go build -o k8s-controller .
 # List deployments in default namespace
 ./k8s-controller list deployments
 
-# List pods in specific namespace  
+# List pods in specific namespace
 ./k8s-controller list pods --namespace production
 
 # Use custom kubeconfig
@@ -67,27 +67,21 @@ go build -o k8s-controller .
 ./k8s-controller delete deployment api-server --namespace production
 ```
 
-### 4. Deployment Informer (Watch Events)
+### 4. HTTP Server with Deployment Informer
 
-The informer watches for Kubernetes deployment events and logs them in real-time.
+The server runs a FastHTTP server and automatically starts a deployment informer that watches for Kubernetes deployment events in the "default" namespace.
 
-#### Start HTTP Server with Informer
+#### Start HTTP Server
 
 ```bash
-# Basic server with informer using default kubeconfig
-./k8s-controller server --enable-informer
+# Basic server with informer using default kubeconfig (informer always enabled)
+./k8s-controller server
 
 # Custom port and kubeconfig
-./k8s-controller server --port 8080 --enable-informer --kubeconfig ~/.kube/config
-
-# Monitor specific namespace
-./k8s-controller server --enable-informer --namespace production
+./k8s-controller server --port 8080 --kubeconfig ~/.kube/config
 
 # Use in-cluster authentication (when running in a Pod)
-./k8s-controller server --enable-informer --in-cluster
-
-# Server without informer (HTTP only)
-./k8s-controller server --port 8080
+./k8s-controller server --in-cluster
 ```
 
 #### Server Endpoints
@@ -98,12 +92,9 @@ When the server is running, you can check the status:
 curl http://localhost:8080
 ```
 
-Example response with informer enabled:
+Example response:
 ```
-Hello from k8s-controller with deployment informer!
-Monitoring namespace: default
-Authentication: Kubeconfig (/home/user/.kube/config)
-Version: dev
+Hello from FastHTTP!
 ```
 
 ## Configuration
@@ -123,7 +114,7 @@ Version: dev
 3. **Environment Variable**:
    ```bash
    export KUBECONFIG=/path/to/config
-   ./k8s-controller server --enable-informer
+   ./k8s-controller server
    ```
 
 ### Command Line Options
@@ -133,10 +124,10 @@ Version: dev
 
 #### Server Command
 - `--port`: HTTP server port (default: 8080)
-- `--enable-informer`: Enable deployment informer
 - `--kubeconfig`: Path to kubeconfig file
 - `--in-cluster`: Use in-cluster authentication
-- `--namespace`: Kubernetes namespace to monitor (default: default)
+
+Note: The deployment informer is always enabled and monitors the "default" namespace only.
 
 #### Resource Commands
 - `--namespace, -n`: Kubernetes namespace
@@ -145,7 +136,7 @@ Version: dev
 
 ## Event Logging
 
-When the informer is enabled, you'll see structured logs for deployment events:
+When the server is running, you'll see structured logs for deployment events in the "default" namespace:
 
 ```json
 {"level":"info","time":"2025-07-01T20:30:15Z","event":"ADD","deployment":"nginx-app","namespace":"default","replicas":3,"message":"Deployment added"}
@@ -226,8 +217,8 @@ go build -ldflags="-w -s -X main.version=$VERSION" -o k8s-controller .
 
 ### Local Development
 ```bash
-# Start with informer for local development
-./k8s-controller server --enable-informer --kubeconfig ~/.kube/config --namespace development
+# Start server with informer for local development
+./k8s-controller server --kubeconfig ~/.kube/config
 ```
 
 ### Kubernetes Deployment
@@ -252,9 +243,7 @@ spec:
         image: k8s-controller:latest
         args:
         - server
-        - --enable-informer
         - --in-cluster
-        - --namespace=production
         ports:
         - containerPort: 8080
 ---
@@ -314,12 +303,9 @@ subjects:
 
 4. **Informer not receiving events**:
    ```bash
-   # Check namespace exists
-   kubectl get namespace <namespace>
-   
-   # Verify deployments exist
-   kubectl get deployments -n <namespace>
-   
+   # Check that deployments exist in default namespace
+   kubectl get deployments -n default
+
    # Check logs for detailed information
    ./k8s-controller server --enable-informer --log-level debug
    ```
