@@ -67,9 +67,9 @@ go build -o k8s-controller .
 ./k8s-controller delete deployment api-server --namespace production
 ```
 
-### 4. HTTP Server with Deployment Informer
+### 4. HTTP Server with Deployment and Pod Informers
 
-The server runs a FastHTTP server and automatically starts a deployment informer that watches for Kubernetes deployment events in the "default" namespace.
+The server runs a FastHTTP server and automatically starts both deployment and pod informers that watch for Kubernetes resource events in the "default" namespace.
 
 #### Start HTTP Server
 
@@ -86,15 +86,29 @@ The server runs a FastHTTP server and automatically starts a deployment informer
 
 #### Server Endpoints
 
-When the server is running, you can check the status:
+When the server is running, you can access the following endpoints:
 
 ```bash
+# Default endpoint
 curl http://localhost:8080
+
+# Get list of deployments
+curl http://localhost:8080/deployments
+
+# Get list of pods
+curl http://localhost:8080/pods
 ```
 
-Example response:
-```
+Example responses:
+```bash
+# Default endpoint
 Hello from FastHTTP!
+
+# /deployments endpoint
+["nginx-app", "api-server"]
+
+# /pods endpoint
+["nginx-app-7d4b8c9f8d-abc123", "api-server-5f6g7h8i9j-def456"]
 ```
 
 ## Configuration
@@ -127,7 +141,7 @@ Hello from FastHTTP!
 - `--kubeconfig`: Path to kubeconfig file
 - `--in-cluster`: Use in-cluster authentication
 
-Note: The deployment informer is always enabled and monitors the "default" namespace only.
+Note: Both deployment and pod informers are always enabled and monitor the "default" namespace only.
 
 #### Resource Commands
 - `--namespace, -n`: Kubernetes namespace
@@ -136,12 +150,20 @@ Note: The deployment informer is always enabled and monitors the "default" names
 
 ## Event Logging
 
-When the server is running, you'll see structured logs for deployment events in the "default" namespace:
+When the server is running, you'll see structured logs for both deployment and pod events in the "default" namespace:
 
+### Deployment Events:
 ```json
-{"level":"info","time":"2025-07-01T20:30:15Z","event":"ADD","deployment":"nginx-app","namespace":"default","replicas":3,"message":"Deployment added"}
-{"level":"info","time":"2025-07-01T20:31:20Z","event":"UPDATE","deployment":"nginx-app","namespace":"default","old_replicas":3,"new_replicas":5,"ready_replicas":5,"message":"Deployment updated"}
-{"level":"info","time":"2025-07-01T20:32:30Z","event":"DELETE","deployment":"nginx-app","namespace":"default","message":"Deployment deleted"}
+{"level":"info","time":"2025-07-01T20:30:15Z","message":"Deployment added: nginx-app"}
+{"level":"info","time":"2025-07-01T20:31:20Z","message":"Deployment updated: nginx-app"}
+{"level":"info","time":"2025-07-01T20:32:30Z","message":"Deployment deleted: nginx-app"}
+```
+
+### Pod Events:
+```json
+{"level":"info","time":"2025-07-01T20:30:20Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","phase":"Pending","message":"Pod added"}
+{"level":"info","time":"2025-07-01T20:30:25Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","old_phase":"Pending","new_phase":"Running","message":"Pod phase updated"}
+{"level":"info","time":"2025-07-01T20:32:35Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","message":"Pod deleted"}
 ```
 
 ## Development
@@ -307,9 +329,13 @@ subjects:
 
 2. **Permission denied**:
    ```bash
-   # Check RBAC permissions
+   # Check RBAC permissions for deployments
    kubectl auth can-i list deployments
    kubectl auth can-i watch deployments
+
+   # Check RBAC permissions for pods
+   kubectl auth can-i list pods
+   kubectl auth can-i watch pods
    ```
 
 3. **In-cluster authentication fails**:
@@ -318,10 +344,13 @@ subjects:
    # Check service account has required permissions
    ```
 
-4. **Informer not receiving events**:
+4. **Informers not receiving events**:
    ```bash
    # Check that deployments exist in default namespace
    kubectl get deployments -n default
+
+   # Check that pods exist in default namespace
+   kubectl get pods -n default
 
    # Check logs for detailed information
    ./k8s-controller server --log-level debug
