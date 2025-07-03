@@ -21,7 +21,7 @@ var serverInCluster bool
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Start a FastHTTP server and deployment informer",
+	Short: "Start a FastHTTP server with deployment and pod informers",
 	Run: func(cmd *cobra.Command, args []string) {
 		level := parseLogLevel(logLevel)
 		configureLogger(level)
@@ -31,7 +31,7 @@ var serverCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		ctx := context.Background()
-		go informer.StartDeploymentInformer(ctx, clientset)
+		go informer.StartBothInformers(ctx, clientset)
 
 		handler := func(ctx *fasthttp.RequestCtx) {
 			requestID := uuid.New().String()
@@ -50,6 +50,23 @@ var serverCmd = &cobra.Command{
 					ctx.WriteString(name)
 					ctx.WriteString("\"")
 					if i < len(deployments)-1 {
+						ctx.WriteString(",")
+					}
+				}
+				ctx.Write([]byte("]"))
+				return
+			case "/pods":
+				logger.Info().Msg("Pods request received")
+				ctx.Response.Header.Set("Content-Type", "application/json")
+				pods := informer.GetPodNames()
+				logger.Info().Msgf("Pods: %v", pods)
+				ctx.SetStatusCode(200)
+				ctx.Write([]byte("["))
+				for i, name := range pods {
+					ctx.WriteString("\"")
+					ctx.WriteString(name)
+					ctx.WriteString("\"")
+					if i < len(pods)-1 {
 						ctx.WriteString(",")
 					}
 				}
