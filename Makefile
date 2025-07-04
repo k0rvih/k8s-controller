@@ -79,6 +79,14 @@ else
 	rm -f $(APP)
 endif
 
+purge-envtest:
+ifeq ($(OS),Windows_NT)
+	@powershell -Command "Get-Process etcd, kube-apiserver -ErrorAction SilentlyContinue | Stop-Process -Force"
+else
+	@pkill -f etcd || true
+	@pkill -f kube-apiserver || true
+endif
+
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
 # $2 - package url which can be installed
