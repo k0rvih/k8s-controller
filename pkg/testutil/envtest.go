@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,8 @@ func SetupEnv(t *testing.T) (*envtest.Environment, *kubernetes.Clientset, func()
 
 	kubeconfigBytes, err := clientcmd.Write(*kubeconfig)
 	require.NoError(t, err)
-	err = os.WriteFile("/tmp/envtest.kubeconfig", kubeconfigBytes, 0644)
+	kubeconfigPath := filepath.Join(os.TempDir(), "envtest.kubeconfig")
+	err = os.WriteFile(kubeconfigPath, kubeconfigBytes, 0644)
 	require.NoError(t, err)
 
 	clientset, err := kubernetes.NewForConfig(cfg)
