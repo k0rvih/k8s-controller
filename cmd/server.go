@@ -9,10 +9,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/valyala/fasthttp"
+	"github.com/yourusername/k8s-controller-tutorial/pkg/ctrl"
 	"github.com/yourusername/k8s-controller-tutorial/pkg/informer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	ctrlruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var serverPort int
@@ -21,7 +24,7 @@ var serverInCluster bool
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Start a FastHTTP server with deployment and pod informers",
+	Short: "Start a FastHTTP server and deployment informer",
 	Run: func(cmd *cobra.Command, args []string) {
 		level := parseLogLevel(logLevel)
 		configureLogger(level)
@@ -30,8 +33,39 @@ var serverCmd = &cobra.Command{
 			log.Error().Err(err).Msg("Failed to create Kubernetes client")
 			os.Exit(1)
 		}
+
 		ctx := context.Background()
-		go informer.StartBothInformers(ctx, clientset)
+		go informer.StartDeploymentInformer(ctx, clientset)
+
+		// Get the same config that we used for the clientset
+		var config *rest.Config
+		if serverInCluster {
+			config, err = rest.InClusterConfig()
+		} else {
+			config, err = clientcmd.BuildConfigFromFlags("", serverKubeconfig)
+		}
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to build Kubernetes config for controller-runtime manager")
+			os.Exit(1)
+		}
+
+		// Start controller-runtime manager and controller
+		mgr, err := ctrlruntime.NewManager(config, manager.Options{})
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create controller-runtime manager")
+			os.Exit(1)
+		}
+		if err := ctrl.AddDeploymentController(mgr); err != nil {
+			log.Error().Err(err).Msg("Failed to add deployment controller")
+			os.Exit(1)
+		}
+		go func() {
+			log.Info().Msg("Starting controller-runtime manager...")
+			if err := mgr.Start(cmd.Context()); err != nil {
+				log.Error().Err(err).Msg("Manager exited with error")
+				os.Exit(1)
+			}
+		}()
 
 		handler := func(ctx *fasthttp.RequestCtx) {
 			requestID := uuid.New().String()
@@ -50,23 +84,6 @@ var serverCmd = &cobra.Command{
 					ctx.WriteString(name)
 					ctx.WriteString("\"")
 					if i < len(deployments)-1 {
-						ctx.WriteString(",")
-					}
-				}
-				ctx.Write([]byte("]"))
-				return
-			case "/pods":
-				logger.Info().Msg("Pods request received")
-				ctx.Response.Header.Set("Content-Type", "application/json")
-				pods := informer.GetPodNames()
-				logger.Info().Msgf("Pods: %v", pods)
-				ctx.SetStatusCode(200)
-				ctx.Write([]byte("["))
-				for i, name := range pods {
-					ctx.WriteString("\"")
-					ctx.WriteString(name)
-					ctx.WriteString("\"")
-					if i < len(pods)-1 {
 						ctx.WriteString(",")
 					}
 				}
