@@ -10,7 +10,10 @@ A comprehensive Kubernetes controller CLI tool built with Go that provides deplo
 
 - 🚀 **Kubernetes Resource Management**: Create, list, and delete deployments and pods
 - 📊 **Real-time Informer**: Watch and log Kubernetes deployment events (add, update, delete)
-- 🔐 **Flexible Authentication**: Support for both kubeconfig and in-cluster authentication
+- 🎯 **Advanced Controller**: Controller-runtime based deployment controller with detailed event logging
+- 👑 **Leader Election**: High availability support with configurable leader election
+- 📈 **Metrics Server**: Built-in Prometheus metrics endpoint for monitoring
+- 🔐 **Flexible Authentication**: Support for kubeconfig file, environment variables, and in-cluster authentication
 - 🌐 **HTTP Server**: Built-in FastHTTP server with optional informer integration
 - 🧪 **Comprehensive Testing**: Unit tests with envtest for realistic Kubernetes API testing
 - 📝 **Structured Logging**: Professional logging with zerolog
@@ -67,36 +70,54 @@ go build -o k8s-controller .
 ./k8s-controller delete deployment api-server --namespace production
 ```
 
-### 4. HTTP Server with Deployment and Pod Informers
+### 4. HTTP Server with Advanced Controller and Informers
 
-The server runs a FastHTTP server and automatically starts both deployment and pod informers that watch for Kubernetes resource events in the "default" namespace.
+The server runs a FastHTTP server and automatically starts both:
+- **Deployment Informer**: Traditional informer for basic deployment events
+- **Advanced Controller**: Controller-runtime based controller with detailed deployment analysis
+- **Leader Election**: Optional leader election for high availability deployments
 
 #### Start HTTP Server
 
 ```bash
-# Basic server with informer using default kubeconfig (informer always enabled)
+# Basic server with informer and controller using default kubeconfig
 ./k8s-controller server
 
 # Custom port and kubeconfig
 ./k8s-controller server --port 8080 --kubeconfig ~/.kube/config
 
+# Use environment variable for kubeconfig (PowerShell)
+$env:KUBECONFIG = "C:\Users\user\.kube\config"
+./k8s-controller server
+
+# Use environment variable for kubeconfig (Bash)
+export KUBECONFIG=/path/to/config
+./k8s-controller server
+
 # Use in-cluster authentication (when running in a Pod)
 ./k8s-controller server --in-cluster
+
+# Enable leader election for high availability
+./k8s-controller server --enable-leader-election --leader-election-namespace kube-system
+
+# Custom metrics port
+./k8s-controller server --metrics-port 9090
 ```
 
 #### Server Endpoints
 
-When the server is running, you can access the following endpoints:
-
 ```bash
 # Default endpoint
 curl http://localhost:8080
+# Response: Hello from FastHTTP!
 
 # Get list of deployments
 curl http://localhost:8080/deployments
+# Response: ["nginx-app", "api-server"]
 
-# Get list of pods
-curl http://localhost:8080/pods
+# Get controller metrics (Prometheus format)
+curl http://localhost:8081/metrics
+# Response: Prometheus metrics including controller performance data
 ```
 
 Example responses:
@@ -115,20 +136,23 @@ Hello from FastHTTP!
 
 ### Authentication Methods
 
-1. **Kubeconfig File** (default):
+1. **Command Line Parameter** (highest priority):
    ```bash
    --kubeconfig ~/.kube/config
    ```
 
-2. **In-Cluster Authentication** (for Pods):
+2. **Environment Variable** (fallback):
    ```bash
-   --in-cluster
+   # PowerShell
+   $env:KUBECONFIG = "C:\Users\user\.kube\config"
+
+   # Bash
+   export KUBECONFIG=/path/to/config
    ```
 
-3. **Environment Variable**:
+3. **In-Cluster Authentication** (for Pods):
    ```bash
-   export KUBECONFIG=/path/to/config
-   ./k8s-controller server
+   --in-cluster
    ```
 
 ### Command Line Options
@@ -138,8 +162,11 @@ Hello from FastHTTP!
 
 #### Server Command
 - `--port`: HTTP server port (default: 8080)
-- `--kubeconfig`: Path to kubeconfig file
+- `--kubeconfig`: Path to kubeconfig file (defaults to KUBECONFIG environment variable if not specified)
 - `--in-cluster`: Use in-cluster authentication
+- `--enable-leader-election`: Enable leader election for controller manager (default: true)
+- `--leader-election-namespace`: Namespace for leader election (default: default)
+- `--metrics-port`: Port for controller manager metrics (default: 8081)
 
 Note: Both deployment and pod informers are always enabled and monitor the "default" namespace only.
 
@@ -150,20 +177,90 @@ Note: Both deployment and pod informers are always enabled and monitor the "defa
 
 ## Event Logging
 
-When the server is running, you'll see structured logs for both deployment and pod events in the "default" namespace:
+The server provides two levels of deployment monitoring:
 
-### Deployment Events:
+### 1. Basic Informer Events
+Traditional informer events for deployment lifecycle:
 ```json
-{"level":"info","time":"2025-07-01T20:30:15Z","message":"Deployment added: nginx-app"}
-{"level":"info","time":"2025-07-01T20:31:20Z","message":"Deployment updated: nginx-app"}
-{"level":"info","time":"2025-07-01T20:32:30Z","message":"Deployment deleted: nginx-app"}
+{"level":"info","time":"2025-01-01T20:30:15Z","message":"Deployment added: nginx-app"}
+{"level":"info","time":"2025-01-01T20:31:20Z","message":"Deployment updated: nginx-app"}
+{"level":"info","time":"2025-01-01T20:32:30Z","message":"Deployment deleted: nginx-app"}
 ```
 
-### Pod Events:
+### 2. Advanced Controller Events
+Detailed controller-runtime based events with comprehensive deployment analysis:
+
+#### Deployment Status Monitoring
 ```json
-{"level":"info","time":"2025-07-01T20:30:20Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","phase":"Pending","message":"Pod added"}
-{"level":"info","time":"2025-07-01T20:30:25Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","old_phase":"Pending","new_phase":"Running","message":"Pod phase updated"}
-{"level":"info","time":"2025-07-01T20:32:35Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","message":"Pod deleted"}
+{
+  "level":"info",
+  "time":"2025-01-01T20:30:15Z",
+  "namespace":"default",
+  "name":"nginx-app",
+  "desired_replicas":3,
+  "current_replicas":3,
+  "ready_replicas":3,
+  "available_replicas":3,
+  "updated_replicas":3,
+  "message":"Deployment status"
+}
+```
+
+#### Scaling Events
+```json
+{
+  "level":"info",
+  "time":"2025-01-01T20:31:20Z",
+  "namespace":"default",
+  "name":"nginx-app",
+  "from_replicas":3,
+  "to_replicas":5,
+  "message":"🔄 Deployment scaling UP detected"
+}
+```
+
+#### Deployment Conditions
+```json
+{
+  "level":"info",
+  "time":"2025-01-01T20:30:25Z",
+  "namespace":"default",
+  "name":"nginx-app",
+  "condition_type":"Available",
+  "status":"True",
+  "reason":"MinimumReplicasAvailable",
+  "message":"Deployment has minimum availability.",
+  "last_transition":"2025-01-01T20:30:20Z",
+  "message":"📋 Deployment condition"
+}
+```
+
+#### Resource Usage Monitoring
+```json
+{
+  "level":"info",
+  "time":"2025-01-01T20:30:30Z",
+  "namespace":"default",
+  "name":"nginx-app",
+  "container_name":"nginx",
+  "requests":{"cpu":"100m","memory":"128Mi"},
+  "limits":{"cpu":"500m","memory":"512Mi"},
+  "message":"📊 Container resources"
+}
+```
+
+### 3. Pod Events
+```json
+{"level":"info","time":"2025-01-01T20:30:20Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","phase":"Pending","message":"Pod added"}
+{"level":"info","time":"2025-01-01T20:30:25Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","old_phase":"Pending","new_phase":"Running","message":"Pod phase updated"}
+{"level":"info","time":"2025-01-01T20:32:35Z","pod":"nginx-app-7d4b8c9f8d-abc123","namespace":"default","message":"Pod deleted"}
+```
+
+### 4. Leader Election Events
+```json
+{"level":"info","time":"2025-01-01T20:30:10Z","message":"Starting controller-runtime manager..."}
+{"level":"info","time":"2025-01-01T20:30:11Z","message":"Leader election enabled, waiting to acquire lease..."}
+{"level":"info","time":"2025-01-01T20:30:12Z","message":"Successfully acquired leader lease"}
 ```
 
 ## Development
@@ -189,6 +286,9 @@ k8s-controller/
 │   ├── server.go              # HTTP server with informer integration
 │   └── server_test.go         # Server command tests
 ├── pkg/
+│   ├── ctrl/                  # Controller-runtime based controllers
+│   │   ├── deployment_controller.go    # Advanced deployment controller
+│   │   └── deployment_controller_test.go  # Controller tests
 │   ├── informer/              # Kubernetes informer implementation
 │   │   ├── informer.go        # Main informer logic
 │   │   └── informer_test.go   # Informer tests
@@ -228,6 +328,10 @@ setup-envtest use 1.29.x!
 
 # Run full test suite
 go test ./pkg/informer -v
+go test ./pkg/ctrl -v
+
+# Run specific controller tests
+go test ./pkg/ctrl -run TestDeploymentReconciler -v
 
 # Run with inspection mode (uncomment sleep in test)
 go test ./pkg/informer -run TestStartDeploymentInformer -v
@@ -260,14 +364,14 @@ go build -ldflags="-w -s -X main.version=$VERSION" -o k8s-controller .
 ./k8s-controller server --kubeconfig ~/.kube/config
 ```
 
-### Kubernetes Deployment
+### Kubernetes Deployment with Leader Election
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: k8s-controller
 spec:
-  replicas: 1
+  replicas: 2  # Multiple replicas for high availability
   selector:
     matchLabels:
       app: k8s-controller
@@ -283,8 +387,39 @@ spec:
         args:
         - server
         - --in-cluster
+        - --enable-leader-election
+        - --leader-election-namespace=kube-system
+        - --metrics-port=8081
         ports:
         - containerPort: 8080
+          name: http
+        - containerPort: 8081
+          name: metrics
+        env:
+        - name: KUBECONFIG
+          value: "/etc/kubeconfig/config"  # Optional: custom kubeconfig location
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-controller
+spec:
+  selector:
+    app: k8s-controller
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  - name: metrics
+    port: 8081
+    targetPort: 8081
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -302,6 +437,12 @@ rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "watch", "create", "delete"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -323,8 +464,12 @@ subjects:
 
 1. **Kubeconfig not found**:
    ```bash
-   # Set explicit path
-   ./k8s-controller server --kubeconfig /path/to/config
+   # PowerShell - Set environment variable
+   $env:KUBECONFIG = "C:\Users\user\.kube\config"
+   ./k8s-controller server
+
+   # Or use explicit path
+   ./k8s-controller server --kubeconfig "C:\Users\user\.kube\config"
    ```
 
 2. **Permission denied**:
@@ -333,27 +478,39 @@ subjects:
    kubectl auth can-i list deployments
    kubectl auth can-i watch deployments
 
-   # Check RBAC permissions for pods
-   kubectl auth can-i list pods
-   kubectl auth can-i watch pods
+   # Check leader election permissions
+   kubectl auth can-i create leases --namespace kube-system
+   kubectl auth can-i update leases --namespace kube-system
    ```
 
-3. **In-cluster authentication fails**:
+3. **Leader election conflicts**:
    ```bash
-   # Ensure running in Pod with proper ServiceAccount
-   # Check service account has required permissions
+   # Check current leader
+   kubectl get leases -n kube-system k8s-controller-leader-election
+
+   # Multiple instances should show leader election logs
+   ./k8s-controller server --log-level debug
    ```
 
-4. **Informers not receiving events**:
+4. **Metrics not accessible**:
    ```bash
-   # Check that deployments exist in default namespace
+   # Check metrics endpoint
+   curl http://localhost:8081/metrics
+
+   # Verify metrics port is not blocked
+   netstat -an | grep :8081
+   ```
+
+5. **Controller not reconciling**:
+   ```bash
+   # Check controller logs with debug level
+   ./k8s-controller server --log-level debug
+
+   # Verify deployment exists
    kubectl get deployments -n default
 
-   # Check that pods exist in default namespace
-   kubectl get pods -n default
-
-   # Check logs for detailed information
-   ./k8s-controller server --log-level debug
+   # Check controller-runtime manager status
+   curl http://localhost:8081/metrics | grep controller
    ```
 
 ## Contributing
